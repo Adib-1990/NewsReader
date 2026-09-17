@@ -1,0 +1,60 @@
+name: Build Android APK and Release
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+      
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+        working-directory: kotlinMultiplatform
+      
+      - name: Build Debug APK
+        run: ./gradlew :androidApp:assembleDebug --no-daemon
+        working-directory: kotlinMultiplatform
+      
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: kotlinMultiplatform/androidApp/build/outputs/apk/debug/*.apk
+      
+      - name: Build Release APK
+        run: ./gradlew :androidApp:assembleGithubRelease --no-daemon
+        working-directory: kotlinMultiplatform
+      
+      - name: Upload Release APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: kotlinMultiplatform/androidApp/build/outputs/apk/githubRelease/*.apk
+      
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: kotlinMultiplatform/androidApp/build/outputs/apk/githubRelease/*.apk
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
